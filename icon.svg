@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7ec8ff"/>
+      <stop offset="1" stop-color="#d9f0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sky)"/>
+  <!-- 구름 -->
+  <g fill="#ffffff">
+    <circle cx="150" cy="150" r="46"/>
+    <circle cx="196" cy="160" r="34"/>
+    <circle cx="112" cy="164" r="30"/>
+  </g>
+  <!-- 별 -->
+  <path fill="#ffc93c" stroke="#e59a00" stroke-width="8" stroke-linejoin="round"
+    d="M380 110 l18 40 44 4 -33 30 10 43 -39 -23 -39 23 10 -43 -33 -30 44 -4 z"/>
+  <!-- 땅 -->
+  <rect x="0" y="400" width="512" height="112" fill="#8a5a34"/>
+  <rect x="0" y="400" width="512" height="26" fill="#5fbf5f"/>
+  <!-- 주인공 -->
+  <g>
+    <rect x="214" y="312" width="84" height="90" rx="20" fill="#ff7a59"/>
+    <circle cx="270" cy="342" r="11" fill="#fff"/>
+    <circle cx="273" cy="342" r="5" fill="#24304a"/>
+    <path d="M240 372 q16 16 32 0" fill="none" stroke="#24304a" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>

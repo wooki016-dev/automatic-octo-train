@@ -1,0 +1,526 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#7ec8ff" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="구름점프" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<title>☁️ 구름 점프</title>
+
+<style>
+  :root {
+    --sky-top: #7ec8ff;
+    --sky-bot: #d9f0ff;
+    --ink: #24304a;
+    --panel: #ffffff;
+    --accent: #ff7a59;
+    --gold: #ffc93c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: #0f1226;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-user-select: none; user-select: none; touch-action: none;
+    overscroll-behavior: none;
+  }
+  #wrap {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  #frame {
+    position: relative; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    background: linear-gradient(var(--sky-top), var(--sky-bot));
+  }
+  canvas { display: block; }
+
+  /* 상단 HUD */
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0; padding: 10px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 800; font-size: 15px; color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,.35); pointer-events: none;
+  }
+  #hud .pill {
+    background: rgba(0,0,0,.28); padding: 4px 10px; border-radius: 999px;
+    backdrop-filter: blur(3px);
+  }
+
+  /* 터치 조작 버튼 */
+  #controls {
+    display: flex; gap: 12px; width: 100%; max-width: 640px;
+    justify-content: space-between; align-items: center;
+  }
+  .cluster { display: flex; gap: 12px; }
+  .btn {
+    width: 74px; height: 74px; border-radius: 22px; border: none;
+    background: var(--panel); color: var(--ink);
+    font-size: 30px; font-weight: 900; display: grid; place-items: center;
+    box-shadow: 0 6px 0 rgba(0,0,0,.18), 0 8px 20px rgba(0,0,0,.28);
+    cursor: pointer; touch-action: none;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+  .btn.jump { background: var(--accent); color: #fff; width: 92px; height: 92px; font-size: 26px; }
+
+  /* 오버레이 화면들 */
+  .screen {
+    position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
+    background: rgba(18,22,44,.55); backdrop-filter: blur(3px); text-align: center;
+    padding: 20px;
+  }
+  .screen.hidden { display: none; }
+  .card {
+    background: #fff; border-radius: 22px; padding: 26px 22px; width: min(90%, 320px);
+    box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  .card h1 { margin: 0 0 6px; font-size: 30px; }
+  .card p { margin: 8px 0 18px; font-size: 15px; line-height: 1.55; color: #4a5878; }
+  .card button {
+    border: none; border-radius: 14px; padding: 14px 22px; font-size: 17px; font-weight: 900;
+    background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 5px 0 #d85a3c;
+  }
+  .card button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d85a3c; }
+  .hint { font-size: 12px; color: #8a95ad; margin-top: 14px; }
+</style>
+
+<div id="wrap">
+  <div id="frame">
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div class="pill">🌟 <span id="uiScore">0</span></div>
+      <div class="pill">스테이지 <span id="uiLevel">1</span></div>
+      <div class="pill">❤️ <span id="uiLives">3</span></div>
+    </div>
+
+    <div class="screen" id="startScreen">
+      <div class="card">
+        <h1>☁️ 구름 점프</h1>
+        <p>별을 모으고 깃발까지 달려가요!<br>구멍과 몬스터를 조심하고, 몬스터는 <b>위에서 밟으면</b> 물리칠 수 있어요.</p>
+        <button id="btnPlay">시작하기 ▶</button>
+        <div class="hint">← → 이동 · ↑ 또는 스페이스바 점프 (폰은 아래 버튼)</div>
+      </div>
+    </div>
+
+    <div class="screen hidden" id="endScreen">
+      <div class="card">
+        <h1 id="endTitle">🎉</h1>
+        <p id="endText"></p>
+        <button id="btnAgain">다시 하기 🔄</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="cluster">
+      <button class="btn" id="btnLeft">◀</button>
+      <button class="btn" id="btnRight">▶</button>
+    </div>
+    <button class="btn jump" id="btnJump">점프</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   ☁️ 구름 점프 — 딸과 함께 만드는 플랫폼머
+   ----------------------------------------------------------------------------
+   🎨 레벨(무대)은 아래 글자 그림으로 그려요. 글자만 바꾸면 무대가 바뀌어요!
+       P = 시작 위치      G = 도착 깃발
+       # = 땅/발판        C = 별(점수)      E = 몬스터
+       (빈칸) = 아무것도 없음
+   줄 길이가 달라도 괜찮아요 (짧은 줄은 자동으로 채워져요).
+   ============================================================================ */
+const LEVELS = [
+// 스테이지 1 — 살살 몸풀기
+[
+"                              ",
+"                              ",
+"                              ",
+"         C C C                ",
+"        #######               ",
+"                    C         ",
+"    C              #####      ",
+"   ####     E                 ",
+"              C       C C     ",
+" P                        G   ",
+"########..######.#############",
+"########..######.#############",
+],
+// 스테이지 2 — 발판 건너뛰기
+[
+"                                   ",
+"          C C                      ",
+"         #####            C C C    ",
+"                        #########  ",
+"      C        E                   ",
+"     ####    #####                 ",
+"                        C          ",
+"  C         C         #####    E   ",
+" ###   C   ###                     ",
+" P    ####        E             G  ",
+"####........####......####..#######",
+"####........####......####..#######",
+],
+// 스테이지 3 — 조금 더 도전!
+[
+"                                        ",
+"     C C C                       C C    ",
+"    #######            E        #####   ",
+"                     #####              ",
+"           C C                    E     ",
+"          #####     C         #######   ",
+"   E              #####                 ",
+"  ####    C                   C C       ",
+"        #####     E   C C    #####      ",
+" P               ###  ####            G ",
+"######...####...####........####...#####",
+"######...####...####........####...#####",
+],
+];
+
+/* ---- 게임에서 쉽게 바꿀 수 있는 값들 ---- */
+const TILE = 40;              // 한 칸 크기(px)
+const MOVE_SPEED = 240;       // 좌우 이동 속도
+const JUMP_VELOCITY = 760;    // 점프 힘 (클수록 높이 뜀)
+const GRAVITY = 2100;         // 중력 (클수록 빨리 떨어짐)
+const START_LIVES = 3;        // 목숨 수
+
+/* ============================================================================
+   여기서부터는 게임을 움직이는 코드예요. 천천히 읽어봐도 좋아요!
+   ============================================================================ */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const VIEW_W = 800, VIEW_H = 480; // 화면에 보이는 크기 (가상 해상도)
+let scale = 1;
+
+// 화면 크기에 맞춰 캔버스를 키우거나 줄여요
+function fitCanvas() {
+  const wrap = document.getElementById("wrap");
+  const availW = wrap.clientWidth - 20;
+  const availH = wrap.clientHeight - 200; // 아래 조작 버튼 공간 남기기
+  scale = Math.min(availW / VIEW_W, availH / VIEW_H);
+  scale = Math.max(0.3, Math.min(scale, 1.4));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = VIEW_W * dpr; canvas.height = VIEW_H * dpr;
+  canvas.style.width = (VIEW_W * scale) + "px";
+  canvas.style.height = (VIEW_H * scale) + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// ---- 레벨 글자 그림을 실제 데이터로 바꾸기 ----
+let level, levelW, levelH, tiles, coins, enemies, player, goal, camX;
+
+function loadLevel(idx) {
+  const raw = LEVELS[idx];
+  levelH = raw.length;
+  levelW = Math.max(...raw.map(r => r.length));
+  tiles = [];      // 땅/발판 (true/false 격자)
+  coins = [];
+  enemies = [];
+  goal = null;
+  for (let r = 0; r < levelH; r++) {
+    tiles[r] = [];
+    const row = raw[r].padEnd(levelW, " ");
+    for (let c = 0; c < levelW; c++) {
+      const ch = row[c];
+      tiles[r][c] = (ch === "#");
+      if (ch === "C") coins.push({ x: c * TILE + TILE/2, y: r * TILE + TILE/2, taken: false, bob: Math.random() * 6 });
+      if (ch === "E") enemies.push({ x: c * TILE + 6, y: r * TILE + 8, w: TILE - 12, h: TILE - 8, vx: 60, vy: 0, dead: false });
+      if (ch === "P") player = { x: c * TILE + 8, y: r * TILE, w: TILE - 16, h: TILE - 4, vx: 0, vy: 0, onGround: false, face: 1, startX: c * TILE + 8, startY: r * TILE };
+      if (ch === "G") goal = { x: c * TILE + TILE/2, y: r * TILE, r: r };
+    }
+  }
+  if (!player) player = { x: 40, y: 40, w: TILE-16, h: TILE-4, vx:0, vy:0, onGround:false, face:1, startX:40, startY:40 };
+  camX = 0;
+}
+
+// 어떤 지점이 땅인지 확인
+function solidAt(px, py) {
+  const c = Math.floor(px / TILE), r = Math.floor(py / TILE);
+  if (r < 0 || r >= levelH || c < 0 || c >= levelW) return false;
+  return tiles[r][c];
+}
+
+// 사각형이 땅과 겹치는지
+function rectHitsSolid(x, y, w, h) {
+  return solidAt(x, y) || solidAt(x + w, y) || solidAt(x, y + h) || solidAt(x + w, y + h) ||
+         solidAt(x + w/2, y) || solidAt(x + w/2, y + h) || solidAt(x, y + h/2) || solidAt(x + w, y + h/2);
+}
+
+// ---- 입력 (키보드 + 터치 버튼) ----
+const input = { left: false, right: false, jump: false, jumpEdge: false };
+addEventListener("keydown", e => {
+  if (e.repeat) return;
+  if (e.key === "ArrowLeft" || e.key === "a") input.left = true;
+  if (e.key === "ArrowRight" || e.key === "d") input.right = true;
+  if (e.key === "ArrowUp" || e.key === " " || e.key === "w") { input.jump = true; input.jumpEdge = true; }
+});
+addEventListener("keyup", e => {
+  if (e.key === "ArrowLeft" || e.key === "a") input.left = false;
+  if (e.key === "ArrowRight" || e.key === "d") input.right = false;
+  if (e.key === "ArrowUp" || e.key === " " || e.key === "w") input.jump = false;
+});
+function holdButton(id, on) {
+  const el = document.getElementById(id);
+  const set = (v) => (e) => { e.preventDefault(); on(v); };
+  el.addEventListener("touchstart", set(true), { passive: false });
+  el.addEventListener("touchend", set(false), { passive: false });
+  el.addEventListener("touchcancel", set(false), { passive: false });
+  el.addEventListener("mousedown", set(true));
+  el.addEventListener("mouseup", set(false));
+  el.addEventListener("mouseleave", set(false));
+}
+holdButton("btnLeft",  v => input.left = v);
+holdButton("btnRight", v => input.right = v);
+holdButton("btnJump",  v => { input.jump = v; if (v) input.jumpEdge = true; });
+
+// ---- 게임 상태 ----
+let game;
+function newGame() {
+  game = { score: 0, lives: START_LIVES, level: 0, over: false, transition: 0 };
+  loadLevel(0);
+  updateHUD();
+}
+function respawn() {
+  player.x = player.startX; player.y = player.startY; player.vx = 0; player.vy = 0;
+}
+
+// ---- 매 프레임 계산 ----
+let last = 0;
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 1/30);
+  last = now;
+  if (game && !game.over && game.transition <= 0) update(dt);
+  if (game && game.transition > 0) game.transition -= dt;
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  const p = player;
+
+  // 좌우 이동
+  p.vx = 0;
+  if (input.left)  { p.vx = -MOVE_SPEED; p.face = -1; }
+  if (input.right) { p.vx =  MOVE_SPEED; p.face =  1; }
+
+  // 점프 (땅에 있을 때만)
+  if (input.jumpEdge && p.onGround) { p.vy = -JUMP_VELOCITY; p.onGround = false; }
+  input.jumpEdge = false;
+
+  // 중력
+  p.vy += GRAVITY * dt;
+  if (p.vy > 900) p.vy = 900;
+
+  // 가로 이동 + 벽 충돌
+  p.x += p.vx * dt;
+  if (rectHitsSolid(p.x, p.y, p.w, p.h)) {
+    p.x -= p.vx * dt;
+    while (!rectHitsSolid(p.x + Math.sign(p.vx), p.y, p.w, p.h) && p.vx !== 0) p.x += Math.sign(p.vx);
+  }
+  if (p.x < 0) p.x = 0;
+
+  // 세로 이동 + 땅 충돌
+  p.onGround = false;
+  p.y += p.vy * dt;
+  if (rectHitsSolid(p.x, p.y, p.w, p.h)) {
+    if (p.vy > 0) { // 아래로 떨어지다 땅에 닿음
+      p.y = Math.floor((p.y + p.h) / TILE) * TILE - p.h - 0.01;
+      p.onGround = true;
+    } else if (p.vy < 0) { // 머리를 천장에 부딪힘
+      p.y = Math.floor(p.y / TILE + 1) * TILE + 0.01;
+    }
+    p.vy = 0;
+  }
+
+  // 구멍에 빠지면 목숨 하나 잃고 다시 시작
+  if (p.y > levelH * TILE + 60) loseLife();
+
+  // 카메라: 플레이어를 화면 가운데쯤에 두고 따라가기
+  const targetCam = p.x + p.w/2 - VIEW_W * 0.42;
+  camX += (targetCam - camX) * Math.min(1, dt * 8);
+  camX = Math.max(0, Math.min(camX, levelW * TILE - VIEW_W));
+
+  // 별 먹기
+  for (const c of coins) {
+    if (c.taken) continue;
+    if (Math.abs(c.x - (p.x + p.w/2)) < 26 && Math.abs(c.y - (p.y + p.h/2)) < 30) {
+      c.taken = true; game.score += 10; updateHUD();
+    }
+  }
+
+  // 몬스터 움직임
+  for (const e of enemies) {
+    if (e.dead) continue;
+    e.vy += GRAVITY * dt; if (e.vy > 900) e.vy = 900;
+    // 가로 이동, 벽이나 낭떠러지에서 방향 바꾸기
+    let nx = e.x + e.vx * dt;
+    const footAhead = solidAt(nx + (e.vx > 0 ? e.w + 2 : -2), e.y + e.h + 2);
+    const wallAhead = rectHitsSolid(nx, e.y, e.w, e.h);
+    if (!footAhead || wallAhead) { e.vx *= -1; } else { e.x = nx; }
+    // 세로(중력)
+    e.y += e.vy * dt;
+    if (rectHitsSolid(e.x, e.y, e.w, e.h) && e.vy > 0) {
+      e.y = Math.floor((e.y + e.h) / TILE) * TILE - e.h - 0.01; e.vy = 0;
+    }
+    // 플레이어와 부딪힘
+    if (overlap(p, e)) {
+      const falling = p.vy > 0 && (p.y + p.h) - e.y < 24;
+      if (falling) { e.dead = true; p.vy = -JUMP_VELOCITY * 0.6; game.score += 20; updateHUD(); }
+      else { loseLife(); }
+    }
+  }
+
+  // 깃발 도착 → 다음 스테이지
+  if (goal && Math.abs(goal.x - (p.x + p.w/2)) < 30 && Math.abs(goal.r * TILE - p.y) < TILE * 2) {
+    nextLevel();
+  }
+}
+
+function overlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function loseLife() {
+  game.lives--;
+  updateHUD();
+  if (game.lives <= 0) { endGame(false); }
+  else { respawn(); game.transition = 0.4; }
+}
+
+function nextLevel() {
+  if (game.level >= LEVELS.length - 1) { endGame(true); return; }
+  game.level++;
+  loadLevel(game.level);
+  game.transition = 0.5;
+  updateHUD();
+}
+
+function endGame(won) {
+  game.over = true;
+  saveBest(game.score);
+  document.getElementById("endTitle").textContent = won ? "🏆 클리어!" : "💫 게임 오버";
+  document.getElementById("endText").innerHTML = won
+    ? `모든 스테이지를 통과했어요!<br>점수 🌟 ${game.score} · 최고 🏆 ${bestScore()}`
+    : `별 🌟 ${game.score}점<br>최고 기록 🏆 ${bestScore()}점`;
+  document.getElementById("endScreen").classList.remove("hidden");
+}
+
+// ---- 그리기 ----
+function draw() {
+  ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+  drawClouds();
+  if (!game) return;
+  ctx.save();
+  ctx.translate(-Math.round(camX), 0);
+
+  // 땅/발판
+  for (let r = 0; r < levelH; r++) {
+    for (let c = 0; c < levelW; c++) {
+      if (!tiles[r][c]) continue;
+      const x = c * TILE, y = r * TILE;
+      if (x - camX > VIEW_W + TILE || x - camX < -TILE) continue; // 화면 밖은 그리지 않기
+      const grassTop = !(r > 0 && tiles[r-1][c]);
+      ctx.fillStyle = "#8a5a34"; ctx.fillRect(x, y, TILE, TILE);
+      if (grassTop) { ctx.fillStyle = "#5fbf5f"; ctx.fillRect(x, y, TILE, 10); }
+    }
+  }
+
+  // 깃발
+  if (goal) {
+    const gx = goal.x, gy = goal.r * TILE;
+    ctx.strokeStyle = "#4a5878"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(gx, gy - TILE*0.2); ctx.lineTo(gx, gy + TILE); ctx.stroke();
+    ctx.fillStyle = "#ff7a59";
+    ctx.beginPath(); ctx.moveTo(gx, gy - TILE*0.2); ctx.lineTo(gx + 28, gy); ctx.lineTo(gx, gy + 18); ctx.fill();
+  }
+
+  // 별
+  for (const c of coins) {
+    if (c.taken) continue;
+    drawStar(c.x, c.y + Math.sin((performance.now()/300) + c.bob) * 4, 12);
+  }
+
+  // 몬스터
+  for (const e of enemies) {
+    if (e.dead) continue;
+    ctx.fillStyle = "#8a5cff";
+    roundRect(e.x, e.y, e.w, e.h, 8); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(e.x + e.w*0.32, e.y + e.h*0.4, 4, 0, 7); ctx.arc(e.x + e.w*0.68, e.y + e.h*0.4, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = "#24304a";
+    ctx.beginPath(); ctx.arc(e.x + e.w*0.32 + (e.vx>0?1.5:-1.5), e.y + e.h*0.4, 2, 0, 7); ctx.arc(e.x + e.w*0.68 + (e.vx>0?1.5:-1.5), e.y + e.h*0.4, 2, 0, 7); ctx.fill();
+  }
+
+  // 플레이어 (귀여운 얼굴)
+  const p = player;
+  ctx.fillStyle = "#ff7a59";
+  roundRect(p.x, p.y, p.w, p.h, 9); ctx.fill();
+  ctx.fillStyle = "#fff";
+  const ex = p.face > 0 ? 0.62 : 0.38;
+  ctx.beginPath(); ctx.arc(p.x + p.w*ex, p.y + p.h*0.34, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = "#24304a";
+  ctx.beginPath(); ctx.arc(p.x + p.w*ex + p.face*1.5, p.y + p.h*0.34, 2.5, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#24304a"; ctx.lineWidth = 2.5; ctx.beginPath();
+  ctx.arc(p.x + p.w*0.5, p.y + p.h*0.62, 5, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+
+  ctx.restore();
+}
+
+let cloudT = 0;
+function drawClouds() {
+  cloudT += 0.02;
+  ctx.fillStyle = "rgba(255,255,255,.75)";
+  const puffs = [[120,90,34],[140,70,26],[560,140,40],[540,120,30],[360,60,28]];
+  for (const [bx, by, rr] of puffs) {
+    const x = (bx - cloudT * 6 - camX * 0.15) % (VIEW_W + 200);
+    const px = x < -100 ? x + VIEW_W + 200 : x;
+    ctx.beginPath(); ctx.arc(px, by, rr, 0, 7); ctx.arc(px + rr, by + 6, rr*0.8, 0, 7); ctx.arc(px - rr, by + 6, rr*0.8, 0, 7); ctx.fill();
+  }
+}
+function drawStar(cx, cy, r) {
+  ctx.fillStyle = "#ffc93c"; ctx.strokeStyle = "#e59a00"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const ang = -Math.PI/2 + i * Math.PI/5;
+    const rad = i % 2 === 0 ? r : r * 0.45;
+    ctx[i === 0 ? "moveTo" : "lineTo"](cx + Math.cos(ang)*rad, cy + Math.sin(ang)*rad);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+}
+
+// ---- HUD & 최고 점수 저장 ----
+function updateHUD() {
+  document.getElementById("uiScore").textContent = game.score;
+  document.getElementById("uiLevel").textContent = game.level + 1;
+  document.getElementById("uiLives").textContent = game.lives;
+}
+function bestScore() { return Number(localStorage.getItem("cloud_best") || 0); }
+function saveBest(s) { if (s > bestScore()) localStorage.setItem("cloud_best", String(s)); }
+
+// ---- 버튼 연결 & 시작 ----
+document.getElementById("btnPlay").onclick = () => {
+  document.getElementById("startScreen").classList.add("hidden");
+  newGame();
+};
+document.getElementById("btnAgain").onclick = () => {
+  document.getElementById("endScreen").classList.add("hidden");
+  newGame();
+};
+addEventListener("resize", fitCanvas);
+fitCanvas();
+requestAnimationFrame(loop);
+
+// ---- 폰 홈 화면 설치용 (오프라인 실행) — 웹 미리보기에서는 조용히 무시돼요 ----
+if ("serviceWorker" in navigator) {
+  try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch (e) {}
+}
+</script>

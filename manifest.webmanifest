@@ -1,0 +1,14 @@
+{
+  "name": "구름 점프",
+  "short_name": "구름점프",
+  "description": "별을 모으고 깃발까지 달려가는 플랫폼 게임",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#7ec8ff",
+  "theme_color": "#7ec8ff",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
