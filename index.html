@@ -561,8 +561,7 @@ function drawDogChar(t, moving, air, phase) {
   // 머리 기준점
   const hx = 13, hy = bodyY - 12;
 
-  // 먼쪽(뒤) 귀 — 머리 뒤로 길게
-  drawEar(hx - 11, hy - 1, flap * 0.8 - 0.05, C.earD, 1.25);
+  // (뒤쪽 귀는 옆모습에선 머리에 가려지므로 생략)
 
   // 머리 (복슬복슬)
   ctx.fillStyle = C.fur;
@@ -597,8 +596,8 @@ function drawDogChar(t, moving, air, phase) {
   ctx.fillStyle = C.tongue;
   ctx.beginPath(); ctx.ellipse(hx + 11, hy + 9, 2, 2.6, 0, 0, 7); ctx.fill();
 
-  // 가까운(앞) 귀 — 얼굴 옆(볼)으로 늘어짐 (얼굴은 가리지 않게)
-  drawEar(hx - 6, hy - 3, flap + 0.12, C.ear, 1.35);
+  // 앞쪽 귀 — 머리 오른쪽 옆에서 턱 옆으로 늘어짐 (얼굴을 감싸듯)
+  drawEar(hx + 4, hy - 7, flap + 0.6, C.ear, 1.1);
 
   // 빨간 목걸이 — 목/가슴에 짧게 + 하트 이름표
   ctx.save();
@@ -637,9 +636,6 @@ function drawEar(baseX, baseY, rot, shade, sc) {
   ctx.bezierCurveTo(-4, 25, 4, 25, 7, 19);
   ctx.bezierCurveTo(10, 11, 8, 2, 3, -4);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,.08)"; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(-4, 4); ctx.quadraticCurveTo(-7, 12, -3, 18); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(2, 3); ctx.quadraticCurveTo(5, 11, 2, 18); ctx.stroke();
   ctx.restore();
 }
 
