@@ -6,23 +6,37 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="96" fill="url(#sky)"/>
-  <!-- 구름 -->
-  <g fill="#ffffff">
-    <circle cx="150" cy="150" r="46"/>
-    <circle cx="196" cy="160" r="34"/>
-    <circle cx="112" cy="164" r="30"/>
-  </g>
   <!-- 별 -->
   <path fill="#ffc93c" stroke="#e59a00" stroke-width="8" stroke-linejoin="round"
-    d="M380 110 l18 40 44 4 -33 30 10 43 -39 -23 -39 23 10 -43 -33 -30 44 -4 z"/>
-  <!-- 땅 -->
-  <rect x="0" y="400" width="512" height="112" fill="#8a5a34"/>
-  <rect x="0" y="400" width="512" height="26" fill="#5fbf5f"/>
-  <!-- 주인공 -->
+    d="M410 120 l16 34 38 4 -28 26 8 37 -34 -20 -34 20 8 -37 -28 -26 38 -4 z"/>
+  <!-- 강아지 -->
   <g>
-    <rect x="214" y="312" width="84" height="90" rx="20" fill="#ff7a59"/>
-    <circle cx="270" cy="342" r="11" fill="#fff"/>
-    <circle cx="273" cy="342" r="5" fill="#24304a"/>
-    <path d="M240 372 q16 16 32 0" fill="none" stroke="#24304a" stroke-width="6" stroke-linecap="round"/>
+    <!-- 귀 -->
+    <ellipse cx="150" cy="330" rx="52" ry="120" fill="#e3bd7f" transform="rotate(-10 150 330)"/>
+    <ellipse cx="362" cy="330" rx="52" ry="120" fill="#e3bd7f" transform="rotate(10 362 330)"/>
+    <!-- 원피스 -->
+    <rect x="176" y="356" width="160" height="120" rx="26" fill="#eef3ff"/>
+    <circle cx="212" cy="392" r="8" fill="#ffc0cb"/>
+    <circle cx="280" cy="420" r="8" fill="#ffc0cb"/>
+    <circle cx="236" cy="448" r="8" fill="#ffc0cb"/>
+    <!-- 목걸이 -->
+    <rect x="184" y="344" width="144" height="18" rx="9" fill="#e23b3b"/>
+    <!-- 머리 -->
+    <circle cx="256" cy="270" r="104" fill="#f3e2c1"/>
+    <!-- 이마 털 -->
+    <g fill="#f3e2c1">
+      <circle cx="196" cy="180" r="34"/><circle cx="256" cy="166" r="38"/><circle cx="316" cy="180" r="34"/>
+    </g>
+    <!-- 주둥이 -->
+    <ellipse cx="256" cy="300" rx="58" ry="48" fill="#fbf3e0"/>
+    <!-- 눈 -->
+    <circle cx="222" cy="262" r="14" fill="#3a2f28"/>
+    <circle cx="290" cy="262" r="14" fill="#3a2f28"/>
+    <circle cx="226" cy="257" r="5" fill="#fff"/>
+    <circle cx="294" cy="257" r="5" fill="#fff"/>
+    <!-- 코 -->
+    <ellipse cx="256" cy="292" rx="20" ry="15" fill="#2e2622"/>
+    <!-- 혀 -->
+    <rect x="244" y="304" width="24" height="30" rx="10" fill="#ff8fa3"/>
   </g>
 </svg>
