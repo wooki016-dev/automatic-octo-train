@@ -1,695 +1,514 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#7ec8ff" />
+<meta name="theme-color" content="#8fd3ff" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="구름점프" />
+<meta name="apple-mobile-web-app-title" content="강아지런" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icon.png" />
-<title>☁️ 구름 점프</title>
+<title>🐶 강아지 런 3D</title>
 
 <style>
-  :root {
-    --sky-top: #7ec8ff;
-    --sky-bot: #d9f0ff;
-    --ink: #24304a;
-    --panel: #ffffff;
-    --accent: #ff7a59;
-    --gold: #ffc93c;
-  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    margin: 0; height: 100%; overflow: hidden;
-    background: #0f1226;
+    margin: 0; height: 100%; overflow: hidden; background: #0d1230;
     font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
-    color: var(--ink);
-    -webkit-user-select: none; user-select: none; touch-action: none;
+    color: #fff; -webkit-user-select: none; user-select: none; touch-action: none;
     overscroll-behavior: none;
   }
-  #wrap {
-    position: fixed; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 10px; padding: 10px;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
-  }
-  #frame {
-    position: relative; border-radius: 16px; overflow: hidden;
-    box-shadow: 0 12px 40px rgba(0,0,0,.45);
-    background: linear-gradient(var(--sky-top), var(--sky-bot));
-  }
-  canvas { display: block; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
   /* 상단 HUD */
   #hud {
-    position: absolute; top: 0; left: 0; right: 0; padding: 10px 12px;
-    display: flex; justify-content: space-between; align-items: center;
-    font-weight: 800; font-size: 15px; color: #fff;
-    text-shadow: 0 2px 4px rgba(0,0,0,.35); pointer-events: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 3;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+    font-weight: 800; pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,.4);
   }
-  #hud .pill {
-    background: rgba(0,0,0,.28); padding: 4px 10px; border-radius: 999px;
-    backdrop-filter: blur(3px);
-  }
+  .chip { background: rgba(10,16,40,.42); border-radius: 999px; padding: 6px 12px; font-size: 15px; backdrop-filter: blur(4px); }
+  #dist { font-size: 26px; letter-spacing: .5px; }
+  #dist small { font-size: 12px; opacity: .7; font-weight: 600; }
 
-  /* 터치 조작 버튼 */
-  #controls {
-    display: flex; gap: 12px; width: 100%; max-width: 640px;
-    justify-content: space-between; align-items: center;
+  /* 하단 터치 조작 */
+  #pad { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+    pointer-events: none;
   }
-  .cluster { display: flex; gap: 12px; }
-  .btn {
-    width: 74px; height: 74px; border-radius: 22px; border: none;
-    background: var(--panel); color: var(--ink);
-    font-size: 30px; font-weight: 900; display: grid; place-items: center;
-    box-shadow: 0 6px 0 rgba(0,0,0,.18), 0 8px 20px rgba(0,0,0,.28);
-    cursor: pointer; touch-action: none;
+  #pad .side { display: flex; gap: 12px; pointer-events: auto; }
+  .key {
+    width: 68px; height: 68px; border-radius: 20px; border: none;
+    background: rgba(255,255,255,.92); color: #23306a; font-size: 28px; font-weight: 900;
+    display: grid; place-items: center; box-shadow: 0 6px 0 rgba(0,0,0,.16);
+    pointer-events: auto;
   }
-  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
-  .btn.jump { background: var(--accent); color: #fff; width: 92px; height: 92px; font-size: 26px; }
+  .key:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.16); }
+  .key.jump { width: 92px; height: 92px; font-size: 20px; background: linear-gradient(180deg,#ffb057,#ff7a3d); color:#fff; box-shadow: 0 6px 0 #d95e28; }
 
-  /* 오버레이 화면들 */
-  .screen {
-    position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
-    background: rgba(18,22,44,.55); backdrop-filter: blur(3px); text-align: center;
-    padding: 20px;
-  }
+  /* 오버레이 */
+  .screen { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+    background: rgba(10,14,36,.55); backdrop-filter: blur(4px); text-align: center; padding: 22px; }
   .screen.hidden { display: none; }
-  .card {
-    background: #fff; border-radius: 22px; padding: 26px 22px; width: min(90%, 320px);
-    box-shadow: 0 20px 60px rgba(0,0,0,.4);
-  }
-  .card h1 { margin: 0 0 6px; font-size: 30px; }
-  .card p { margin: 8px 0 18px; font-size: 15px; line-height: 1.55; color: #4a5878; }
-  .card button {
-    border: none; border-radius: 14px; padding: 14px 22px; font-size: 17px; font-weight: 900;
-    background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 5px 0 #d85a3c;
-  }
-  .card button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d85a3c; }
-  .hint { font-size: 12px; color: #8a95ad; margin-top: 14px; }
+  .card { background: #fff; color: #23306a; border-radius: 24px; padding: 26px 22px; width: min(90%, 340px);
+    box-shadow: 0 24px 70px rgba(0,0,0,.45); }
+  .card h1 { margin: 0 0 4px; font-size: 30px; }
+  .card p { margin: 8px 0 18px; font-size: 15px; line-height: 1.6; color: #56618c; }
+  .card button { border: none; border-radius: 14px; padding: 14px 22px; font-size: 17px; font-weight: 900;
+    background: linear-gradient(180deg,#ffb057,#ff7a3d); color: #fff; box-shadow: 0 5px 0 #d95e28; cursor: pointer; }
+  .card button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d95e28; }
+  .hint { margin-top: 14px; font-size: 12px; color: #8b93b4; }
+  #loading { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: #0d1230; color:#fff; font-weight:800; }
 </style>
 
-<div id="wrap">
-  <div id="frame">
-    <canvas id="game"></canvas>
-    <div id="hud">
-      <div class="pill">🌟 <span id="uiScore">0</span></div>
-      <div class="pill">스테이지 <span id="uiLevel">1</span></div>
-      <div class="pill">❤️ <span id="uiLives">3</span></div>
-    </div>
+<canvas id="c"></canvas>
 
-    <div class="screen" id="startScreen">
-      <div class="card">
-        <h1>🐶 강아지의 구름 점프</h1>
-        <p>우리 강아지 2D 캐릭터가 별을 모으며 깃발까지 달려가요!<br>구멍과 몬스터를 조심하고, 몬스터는 <b>위에서 밟으면</b> 물리칠 수 있어요.</p>
-        <button id="btnPlay">시작하기 ▶</button>
-        <div class="hint">← → 이동 · ↑ 또는 스페이스바 점프 (폰은 아래 버튼)</div>
-      </div>
-    </div>
+<div id="hud" style="display:none">
+  <div class="chip">🦴 <span id="coins">0</span></div>
+  <div class="chip" id="dist"><span id="m">0</span><small> m</small></div>
+  <div class="chip">❤️ <span id="lives">3</span></div>
+</div>
 
-    <div class="screen hidden" id="endScreen">
-      <div class="card">
-        <h1 id="endTitle">🎉</h1>
-        <p id="endText"></p>
-        <button id="btnAgain">다시 하기 🔄</button>
-      </div>
-    </div>
-  </div>
+<div id="pad" style="display:none">
+  <div class="side"><button class="key" id="kL">◀</button></div>
+  <button class="key jump" id="kJ">점프</button>
+  <div class="side"><button class="key" id="kR">▶</button></div>
+</div>
 
-  <div id="controls">
-    <div class="cluster">
-      <button class="btn" id="btnLeft">◀</button>
-      <button class="btn" id="btnRight">▶</button>
-    </div>
-    <button class="btn jump" id="btnJump">점프</button>
+<div class="screen" id="start">
+  <div class="card">
+    <h1>🐶 강아지 런 3D</h1>
+    <p>강아지가 신나게 앞으로 달려요!<br><b>좌우로 레인을 바꿔</b> 장애물을 피하고, <b>점프</b>로 뛰어넘으며 🦴 뼈다귀를 모아요.</p>
+    <button id="play">달리기 시작 ▶</button>
+    <div class="hint">폰: 아래 버튼 또는 화면 쓸기(스와이프) · PC: ← → ↑ 방향키</div>
   </div>
 </div>
 
+<div class="screen hidden" id="over">
+  <div class="card">
+    <h1 id="ovTitle">💫</h1>
+    <p id="ovText"></p>
+    <button id="again">다시 달리기 🔄</button>
+  </div>
+</div>
+
+<div id="loading">불러오는 중… 🐾</div>
+
+<script src="three.min.js"></script>
 <script>
 /* ============================================================================
-   ☁️ 구름 점프 — 딸과 함께 만드는 플랫폼머
+   🐶 강아지 런 3D — 무한 달리기 게임
    ----------------------------------------------------------------------------
-   🎨 레벨(무대)은 아래 글자 그림으로 그려요. 글자만 바꾸면 무대가 바뀌어요!
-       P = 시작 위치      G = 도착 깃발
-       # = 땅/발판        C = 별(점수)      E = 몬스터
-       (빈칸) = 아무것도 없음
-   줄 길이가 달라도 괜찮아요 (짧은 줄은 자동으로 채워져요).
+   🎮 아래 값들을 바꾸면 게임 느낌이 달라져요! (딸과 함께 실험해보세요)
    ============================================================================ */
-const LEVELS = [
-// 스테이지 1 — 살살 몸풀기
-[
-"                              ",
-"                              ",
-"                              ",
-"         C C C                ",
-"        #######               ",
-"                    C         ",
-"    C              #####      ",
-"   ####     E                 ",
-"              C       C C     ",
-" P                        G   ",
-"########..######.#############",
-"########..######.#############",
-],
-// 스테이지 2 — 발판 건너뛰기
-[
-"                                   ",
-"          C C                      ",
-"         #####            C C C    ",
-"                        #########  ",
-"      C        E                   ",
-"     ####    #####                 ",
-"                        C          ",
-"  C         C         #####    E   ",
-" ###   C   ###                     ",
-" P    ####        E             G  ",
-"####........####......####..#######",
-"####........####......####..#######",
-],
-// 스테이지 3 — 조금 더 도전!
-[
-"                                        ",
-"     C C C                       C C    ",
-"    #######            E        #####   ",
-"                     #####              ",
-"           C C                    E     ",
-"          #####     C         #######   ",
-"   E              #####                 ",
-"  ####    C                   C C       ",
-"        #####     E   C C    #####      ",
-" P               ###  ####            G ",
-"######...####...####........####...#####",
-"######...####...####........####...#####",
-],
-];
+const CFG = {
+  startSpeed: 13,     // 시작 달리기 속도
+  maxSpeed: 30,       // 최고 속도
+  accel: 0.28,        // 점점 빨라지는 정도(초당)
+  lanes: [-2.2, 0, 2.2], // 좌·중·우 레인 위치
+  jumpPower: 10.5,    // 점프 힘
+  gravity: 26,        // 중력
+  lives: 3,           // 목숨
+};
 
-/* ---- 게임에서 쉽게 바꿀 수 있는 값들 ---- */
-const TILE = 40;              // 한 칸 크기(px)
-const MOVE_SPEED = 240;       // 좌우 이동 속도
-const JUMP_VELOCITY = 760;    // 점프 힘 (클수록 높이 뜀)
-const GRAVITY = 2100;         // 중력 (클수록 빨리 떨어짐)
-const START_LIVES = 3;        // 목숨 수
+let scene, camera, renderer, clock;
+let dog, dogParts;
+const obstacles = [], coins = [], trees = [], stripes = [];
+let state; // 게임 상태
 
-/* ============================================================================
-   여기서부터는 게임을 움직이는 코드예요. 천천히 읽어봐도 좋아요!
-   ============================================================================ */
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const VIEW_W = 800, VIEW_H = 480; // 화면에 보이는 크기 (가상 해상도)
-let scale = 1;
+// ---------- 초기화 ----------
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8fd3ff);
+  scene.fog = new THREE.Fog(0x8fd3ff, 24, 62);   // 멀리 안개로 자연스럽게
 
+  camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
+  camera.position.set(0, 4.2, 8);
+  camera.lookAt(0, 0.9, -8);
 
-// 화면 크기에 맞춰 캔버스를 키우거나 줄여요
-function fitCanvas() {
-  const wrap = document.getElementById("wrap");
-  const availW = wrap.clientWidth - 20;
-  const availH = wrap.clientHeight - 200; // 아래 조작 버튼 공간 남기기
-  scale = Math.min(availW / VIEW_W, availH / VIEW_H);
-  scale = Math.max(0.3, Math.min(scale, 1.4));
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = VIEW_W * dpr; canvas.height = VIEW_H * dpr;
-  canvas.style.width = (VIEW_W * scale) + "px";
-  canvas.style.height = (VIEW_H * scale) + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
+  renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("c"), antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;   // 색이 더 또렷하게
 
-// ---- 레벨 글자 그림을 실제 데이터로 바꾸기 ----
-let level, levelW, levelH, tiles, coins, enemies, player, goal, camX;
+  // 빛
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x6b8f4e, 0.72);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff2d8, 1.1);
+  sun.position.set(-8, 16, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 1; sun.shadow.camera.far = 60;
+  sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+  scene.add(sun);
+  scene.add(sun.target);
 
-function loadLevel(idx) {
-  const raw = LEVELS[idx];
-  levelH = raw.length;
-  levelW = Math.max(...raw.map(r => r.length));
-  tiles = [];      // 땅/발판 (true/false 격자)
-  coins = [];
-  enemies = [];
-  goal = null;
-  for (let r = 0; r < levelH; r++) {
-    tiles[r] = [];
-    const row = raw[r].padEnd(levelW, " ");
-    for (let c = 0; c < levelW; c++) {
-      const ch = row[c];
-      tiles[r][c] = (ch === "#");
-      if (ch === "C") coins.push({ x: c * TILE + TILE/2, y: r * TILE + TILE/2, taken: false, bob: Math.random() * 6 });
-      if (ch === "E") enemies.push({ x: c * TILE + 6, y: r * TILE + 8, w: TILE - 12, h: TILE - 8, vx: 60, vy: 0, dead: false });
-      if (ch === "P") player = { x: c * TILE + 8, y: r * TILE, w: TILE - 16, h: TILE - 4, vx: 0, vy: 0, onGround: false, face: 1, startX: c * TILE + 8, startY: r * TILE };
-      if (ch === "G") goal = { x: c * TILE + TILE/2, y: r * TILE, r: r };
-    }
+  // 잔디 바닥
+  const grass = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 260),
+    new THREE.MeshStandardMaterial({ color: 0x74c25a })
+  );
+  grass.rotation.x = -Math.PI/2; grass.position.z = -100; grass.receiveShadow = true;
+  scene.add(grass);
+  // 흙길 (레인들이 놓인 길)
+  const road = new THREE.Mesh(
+    new THREE.PlaneGeometry(8.2, 260),
+    new THREE.MeshStandardMaterial({ color: 0xcaa06a })
+  );
+  road.rotation.x = -Math.PI/2; road.position.set(0, 0.01, -100); road.receiveShadow = true;
+  scene.add(road);
+
+  // 길 위 가로줄무늬 (속도감) — 움직였다가 재활용
+  for (let i = 0; i < 22; i++) {
+    const s = new THREE.Mesh(
+      new THREE.PlaneGeometry(8.2, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0xb08753 })
+    );
+    s.rotation.x = -Math.PI/2; s.position.set(0, 0.02, -i * 5);
+    scene.add(s); stripes.push(s);
   }
-  if (!player) player = { x: 40, y: 40, w: TILE-16, h: TILE-4, vx:0, vy:0, onGround:false, face:1, startX:40, startY:40 };
-  camX = 0;
+
+  // 길가 나무들
+  for (let i = 0; i < 16; i++) addTree(i);
+
+  // 강아지
+  dog = buildDog();
+  scene.add(dog);
+
+  addEventListener("resize", onResize);
+  bindControls();
+  clock = new THREE.Clock();
+  document.getElementById("loading").style.display = "none";
+  renderer.render(scene, camera); // 첫 프레임
+  animate();
 }
 
-// 어떤 지점이 땅인지 확인
-function solidAt(px, py) {
-  const c = Math.floor(px / TILE), r = Math.floor(py / TILE);
-  if (r < 0 || r >= levelH || c < 0 || c >= levelW) return false;
-  return tiles[r][c];
+// ---------- 강아지 3D 캐릭터 만들기 ----------
+function buildDog() {
+  const outer = new THREE.Group();
+  const g = new THREE.Group();
+  const cream = new THREE.MeshStandardMaterial({ color: 0xf0dcae, roughness: 0.85 });
+  const creamD = new THREE.MeshStandardMaterial({ color: 0xdcc088, roughness: 0.85 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2b2320 });
+  const red  = new THREE.MeshStandardMaterial({ color: 0xd83b3b, roughness: 0.5 });
+  const pink = new THREE.MeshStandardMaterial({ color: 0xff8fa3 });
+  const dress = new THREE.MeshStandardMaterial({ color: 0xeaf1ff, roughness: 0.9 });
+
+  const sph = (r, m, sx, sy, sz) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), m); if(sx)o.scale.set(sx,sy,sz); o.castShadow=true; return o; };
+  const box = (w,h,d,m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); o.castShadow=true; return o; };
+
+  // 몸통
+  const body = sph(1.05, cream, 1, 0.9, 1.25); body.position.set(0, 1.0, 0); g.add(body);
+  // 꽃무늬 원피스(치마) — 아래를 감싸는 원뿔
+  const skirt = new THREE.Mesh(new THREE.ConeGeometry(1.25, 1.1, 20, 1, true), dress);
+  skirt.position.set(0, 0.7, 0.05); skirt.castShadow = true; g.add(skirt);
+  const flowerMat = new THREE.MeshStandardMaterial({ color: 0xff9dc0 });
+  for (let i = 0; i < 6; i++) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), flowerMat);
+    const a = i/6 * Math.PI*2;
+    f.position.set(Math.cos(a)*0.95, 0.55 + (i%2)*0.2, Math.sin(a)*0.95 + 0.05);
+    g.add(f);
+  }
+
+  // 머리
+  const head = sph(0.8, cream); head.position.set(0, 1.75, 0.55); g.add(head);
+  const topfluff = sph(0.5, cream); topfluff.position.set(0, 2.25, 0.45); g.add(topfluff);
+  const muzzle = sph(0.42, new THREE.MeshStandardMaterial({ color: 0xfbf3e0 }), 1,0.85,1.1);
+  muzzle.position.set(0, 1.62, 1.15); g.add(muzzle);
+  const nose = sph(0.15, dark); nose.position.set(0, 1.7, 1.5); g.add(nose);
+  // 눈
+  for (const sx of [-0.32, 0.32]) {
+    const eye = sph(0.12, dark); eye.position.set(sx, 1.9, 1.25); g.add(eye);
+    const shine = sph(0.04, new THREE.MeshStandardMaterial({ color: 0xffffff })); shine.position.set(sx+0.04, 1.96, 1.34); g.add(shine);
+  }
+  // 혀
+  const tongue = sph(0.12, pink, 1, 0.6, 1); tongue.position.set(0, 1.5, 1.42); g.add(tongue);
+
+  // 긴 곱슬 귀 (양옆, 아래로)
+  const ears = [];
+  for (const sx of [-1, 1]) {
+    const ear = new THREE.Group();
+    const e1 = sph(0.28, creamD, 0.7, 1.3, 0.7); e1.position.set(0, -0.25, 0);
+    const e2 = sph(0.26, creamD, 0.7, 1.2, 0.7); e2.position.set(0, -0.75, 0.02);
+    ear.add(e1); ear.add(e2);
+    ear.position.set(sx * 0.72, 1.95, 0.5);
+    g.add(ear); ears.push(ear);
+  }
+
+  // 빨간 목걸이
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.1, 10, 24), red);
+  collar.position.set(0, 1.35, 0.55); collar.rotation.x = Math.PI/2 - 0.35; g.add(collar);
+  const tag = sph(0.12, new THREE.MeshStandardMaterial({ color: 0xffcf3a })); tag.position.set(0, 1.15, 1.0); g.add(tag);
+
+  // 다리 4개 (달리기용, 엉덩이에서 회전)
+  const legs = [];
+  const legPos = [[-0.5, 0.7], [0.5, 0.7], [-0.5, -0.55], [0.5, -0.55]];
+  for (const [lx, lz] of legPos) {
+    const hip = new THREE.Group();
+    const leg = box(0.32, 0.8, 0.32, cream); leg.position.y = -0.4;
+    const paw = sph(0.22, creamD, 1, 0.7, 1.2); paw.position.y = -0.78;
+    hip.add(leg); hip.add(paw);
+    hip.position.set(lx, 0.75, lz);
+    g.add(hip); legs.push(hip);
+  }
+
+  // 꼬리
+  const tail = new THREE.Group();
+  const tball = sph(0.25, cream); tball.position.set(0, 0, -0.15); tail.add(tball);
+  tail.position.set(0, 1.2, -1.05); g.add(tail);
+
+  g.rotation.y = Math.PI;        // 카메라 반대쪽(앞)으로 달리게
+  g.scale.setScalar(0.72);       // 크기 조절
+  outer.add(g);
+  dogParts = { legs, ears, tail, body };
+  return outer;
 }
 
-// 사각형이 땅과 겹치는지
-function rectHitsSolid(x, y, w, h) {
-  return solidAt(x, y) || solidAt(x + w, y) || solidAt(x, y + h) || solidAt(x + w, y + h) ||
-         solidAt(x + w/2, y) || solidAt(x + w/2, y + h) || solidAt(x, y + h/2) || solidAt(x + w, y + h/2);
+function addTree(i) {
+  const t = new THREE.Group();
+  const side = i % 2 === 0 ? -1 : 1;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.32, 1.4, 8),
+    new THREE.MeshStandardMaterial({ color: 0x8a5a34 }));
+  trunk.position.y = 0.7; trunk.castShadow = true; t.add(trunk);
+  const leaf = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.2, 10),
+    new THREE.MeshStandardMaterial({ color: 0x3f9e56 }));
+  leaf.position.y = 2.3; leaf.castShadow = true; t.add(leaf);
+  t.position.set(side * (5.5 + Math.random()*3), 0, -i * 8 - Math.random()*4);
+  scene.add(t); trees.push(t);
 }
 
-// ---- 입력 (키보드 + 터치 버튼) ----
-const input = { left: false, right: false, jump: false, jumpEdge: false };
-addEventListener("keydown", e => {
-  if (e.repeat) return;
-  if (e.key === "ArrowLeft" || e.key === "a") input.left = true;
-  if (e.key === "ArrowRight" || e.key === "d") input.right = true;
-  if (e.key === "ArrowUp" || e.key === " " || e.key === "w") { input.jump = true; input.jumpEdge = true; }
-});
-addEventListener("keyup", e => {
-  if (e.key === "ArrowLeft" || e.key === "a") input.left = false;
-  if (e.key === "ArrowRight" || e.key === "d") input.right = false;
-  if (e.key === "ArrowUp" || e.key === " " || e.key === "w") input.jump = false;
-});
-function holdButton(id, on) {
-  const el = document.getElementById(id);
-  const set = (v) => (e) => { e.preventDefault(); on(v); };
-  el.addEventListener("touchstart", set(true), { passive: false });
-  el.addEventListener("touchend", set(false), { passive: false });
-  el.addEventListener("touchcancel", set(false), { passive: false });
-  el.addEventListener("mousedown", set(true));
-  el.addEventListener("mouseup", set(false));
-  el.addEventListener("mouseleave", set(false));
+// ---------- 장애물 / 뼈다귀 ----------
+function makeObstacle() {
+  const m = new THREE.MeshStandardMaterial({ color: 0xef5a6a, roughness: 0.6 });
+  const o = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), m);
+  o.castShadow = true; o.userData.kind = "obstacle";
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.3, 1.32),
+    new THREE.MeshStandardMaterial({ color: 0xffffff }));
+  o.add(stripe);
+  return o;
 }
-holdButton("btnLeft",  v => input.left = v);
-holdButton("btnRight", v => input.right = v);
-holdButton("btnJump",  v => { input.jump = v; if (v) input.jumpEdge = true; });
+function makeCoin() {
+  const g = new THREE.Group(); g.userData.kind = "coin";
+  const gold = new THREE.MeshStandardMaterial({ color: 0xffcf3a, metalness: 0.3, roughness: 0.4 });
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.7, 10), gold); bar.rotation.z = Math.PI/2;
+  const b1 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), gold); b1.position.x = -0.42;
+  const b2 = b1.clone(); b2.position.x = 0.42;
+  const b3 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), gold); b3.position.set(-0.42, 0.28, 0);
+  const b4 = b3.clone(); b4.position.set(0.42, 0.28, 0);
+  const b5 = b3.clone(); b5.position.set(-0.42, -0.28, 0);
+  const b6 = b3.clone(); b6.position.set(0.42, -0.28, 0);
+  [bar,b1,b2,b3,b4,b5,b6].forEach(p => { p.castShadow = true; g.add(p); });
+  return g;
+}
 
-// ---- 게임 상태 ----
-let game;
 function newGame() {
-  game = { score: 0, lives: START_LIVES, level: 0, over: false, transition: 0 };
-  loadLevel(0);
+  // 이전 물체 정리
+  for (const o of obstacles) scene.remove(o);
+  for (const c of coins) scene.remove(c);
+  obstacles.length = 0; coins.length = 0;
+  state = {
+    running: true, speed: CFG.startSpeed, dist: 0, coins: 0, lives: CFG.lives,
+    lane: 1, dogX: 0, dogY: 0, vy: 0, grounded: true, run: 0,
+    spawnZ: -40, invuln: 0,
+  };
+  dog.position.set(0, 0, 0); dog.rotation.y = 0;
+  document.getElementById("hud").style.display = "flex";
+  document.getElementById("pad").style.display = "flex";
+  document.getElementById("start").classList.add("hidden");
+  document.getElementById("over").classList.add("hidden");
   updateHUD();
 }
-function respawn() {
-  player.x = player.startX; player.y = player.startY; player.vx = 0; player.vy = 0;
+
+// ---------- 새 줄(장애물+뼈다귀) 생성 ----------
+function spawnRow(z) {
+  // 한 레인은 반드시 비워서 지날 수 있게
+  const free = Math.floor(Math.random() * 3);
+  for (let L = 0; L < 3; L++) {
+    if (L === free) {
+      // 빈 레인엔 가끔 뼈다귀 줄
+      if (Math.random() < 0.7) {
+        for (let k = 0; k < 3; k++) {
+          const c = makeCoin();
+          c.position.set(CFG.lanes[L], 1.0, z - k * 2.2);
+          scene.add(c); coins.push(c);
+        }
+      }
+    } else {
+      if (Math.random() < 0.62) {
+        const o = makeObstacle();
+        o.position.set(CFG.lanes[L], 0.65, z);
+        scene.add(o); obstacles.push(o);
+      } else if (Math.random() < 0.4) {
+        const c = makeCoin();
+        c.position.set(CFG.lanes[L], 1.0, z);
+        scene.add(c); coins.push(c);
+      }
+    }
+  }
 }
 
-// ---- 매 프레임 계산 ----
-let last = 0;
-function loop(now) {
-  const dt = Math.min((now - last) / 1000, 1/30);
-  last = now;
-  if (game && !game.over && game.transition <= 0) update(dt);
-  if (game && game.transition > 0) game.transition -= dt;
-  draw();
-  requestAnimationFrame(loop);
+// ---------- 조작 ----------
+function moveLane(dir) {
+  if (!state || !state.running) return;
+  state.lane = Math.max(0, Math.min(2, state.lane + dir));
+}
+function jump() {
+  if (!state || !state.running || !state.grounded) return;
+  state.vy = CFG.jumpPower; state.grounded = false;
+}
+function bindControls() {
+  document.getElementById("kL").onclick = () => moveLane(-1);
+  document.getElementById("kR").onclick = () => moveLane(1);
+  document.getElementById("kJ").onclick = () => jump();
+  addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") moveLane(-1);
+    if (e.key === "ArrowRight") moveLane(1);
+    if (e.key === "ArrowUp" || e.key === " ") jump();
+  });
+  // 스와이프
+  let sx = 0, sy = 0, tracking = false;
+  const cvs = document.getElementById("c");
+  cvs.addEventListener("touchstart", e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; tracking = true; }, { passive: true });
+  cvs.addEventListener("touchend", e => {
+    if (!tracking) return; tracking = false;
+    const t = e.changedTouches[0]; const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) > Math.abs(dy)) { if (Math.abs(dx) > 24) moveLane(dx > 0 ? 1 : -1); }
+    else { if (dy < -24) jump(); }
+  }, { passive: true });
+}
+
+// ---------- 매 프레임 ----------
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (state && state.running) update(dt);
+  renderer.render(scene, camera);
 }
 
 function update(dt) {
-  const p = player;
+  const s = state;
+  s.speed = Math.min(CFG.maxSpeed, s.speed + CFG.accel * dt);
+  const move = s.speed * dt;
+  s.dist += move;
+  if (s.invuln > 0) s.invuln -= dt;
 
-  // 좌우 이동
-  p.vx = 0;
-  if (input.left)  { p.vx = -MOVE_SPEED; p.face = -1; }
-  if (input.right) { p.vx =  MOVE_SPEED; p.face =  1; }
+  // 줄무늬 이동(속도감)
+  for (const st of stripes) { st.position.z += move; if (st.position.z > 12) st.position.z -= 110; }
+  // 나무 이동
+  for (const t of trees) { t.position.z += move; if (t.position.z > 12) { t.position.z -= 128; t.position.x = (t.position.x>0?1:-1)*(5.5+Math.random()*3); } }
 
-  // 점프 (땅에 있을 때만)
-  if (input.jumpEdge && p.onGround) { p.vy = -JUMP_VELOCITY; p.onGround = false; }
-  input.jumpEdge = false;
+  // 장애물·뼈다귀 이동 + 재활용
+  for (const o of obstacles) o.position.z += move;
+  for (const c of coins) { c.position.z += move; c.rotation.z += dt * 6; }
 
-  // 중력
-  p.vy += GRAVITY * dt;
-  if (p.vy > 900) p.vy = 900;
+  // 새 줄 생성
+  s.spawnZ += move;
+  const gap = 9 - Math.min(3, s.speed * 0.12); // 빨라질수록 촘촘
+  if (s.spawnZ > -46) { spawnRow(-58); s.spawnZ = -58 + gap; }
+  // 화면 뒤로 지난 것 제거
+  cull(obstacles); cull(coins);
 
-  // 가로 이동 + 벽 충돌
-  p.x += p.vx * dt;
-  if (rectHitsSolid(p.x, p.y, p.w, p.h)) {
-    p.x -= p.vx * dt;
-    while (!rectHitsSolid(p.x + Math.sign(p.vx), p.y, p.w, p.h) && p.vx !== 0) p.x += Math.sign(p.vx);
+  // 강아지 좌우 레인 이동(부드럽게)
+  const targetX = CFG.lanes[s.lane];
+  s.dogX += (targetX - s.dogX) * Math.min(1, dt * 12);
+  dog.position.x = s.dogX;
+  dog.rotation.y = (targetX - s.dogX) * -0.5; // 살짝 기울기
+  // 카메라가 강아지를 살짝 따라가서 화면 가운데쯤에 유지
+  camera.position.x += (s.dogX * 0.5 - camera.position.x) * Math.min(1, dt * 4);
+  camera.lookAt(s.dogX * 0.25, 0.9, -8);
+
+  // 점프/중력
+  if (!s.grounded) {
+    s.vy -= CFG.gravity * dt;
+    s.dogY += s.vy * dt;
+    if (s.dogY <= 0) { s.dogY = 0; s.vy = 0; s.grounded = true; }
   }
-  if (p.x < 0) p.x = 0;
+  dog.position.y = s.dogY;
 
-  // 걷기 애니메이션용 위상 (다리·귀가 움직이는 속도)
-  if (p.onGround && Math.abs(p.vx) > 5) p.stride = (p.stride || 0) + dt * 9;
+  // 달리기 애니메이션
+  s.run += dt * s.speed * 0.9;
+  const sw = Math.sin(s.run);
+  if (dogParts) {
+    dogParts.legs[0].rotation.x = sw * 0.8;
+    dogParts.legs[1].rotation.x = -sw * 0.8;
+    dogParts.legs[2].rotation.x = -sw * 0.8;
+    dogParts.legs[3].rotation.x = sw * 0.8;
+    dogParts.ears.forEach((e,i)=> e.rotation.x = Math.sin(s.run + i) * 0.25 + (s.grounded?0:-0.3));
+    dogParts.tail.rotation.z = Math.sin(s.run * 1.5) * 0.5;
+    dogParts.body.position.y = 1.0 + Math.abs(sw) * 0.08;
+  }
+  // 점프 중 살짝 앞으로 숙임
+  dog.rotation.x = s.grounded ? 0 : -Math.min(0.3, s.vy * 0.02);
 
-  // 세로 이동 + 땅 충돌
-  p.onGround = false;
-  p.y += p.vy * dt;
-  if (rectHitsSolid(p.x, p.y, p.w, p.h)) {
-    if (p.vy > 0) { // 아래로 떨어지다 땅에 닿음
-      p.y = Math.floor((p.y + p.h) / TILE) * TILE - p.h - 0.01;
-      p.onGround = true;
-    } else if (p.vy < 0) { // 머리를 천장에 부딪힘
-      p.y = Math.floor(p.y / TILE + 1) * TILE + 0.01;
+  // 충돌 판정
+  const dogZ = 0;
+  for (const o of obstacles) {
+    if (o.userData.hit) continue;
+    if (Math.abs(o.position.z - dogZ) < 0.9 && Math.abs(o.position.x - s.dogX) < 0.95) {
+      if (s.dogY < 1.1) { // 점프로 넘지 못하면 충돌
+        o.userData.hit = true;
+        if (s.invuln <= 0) hitObstacle(o);
+      }
     }
-    p.vy = 0;
   }
-
-  // 구멍에 빠지면 목숨 하나 잃고 다시 시작
-  if (p.y > levelH * TILE + 60) loseLife();
-
-  // 카메라: 플레이어를 화면 가운데쯤에 두고 따라가기
-  const targetCam = p.x + p.w/2 - VIEW_W * 0.42;
-  camX += (targetCam - camX) * Math.min(1, dt * 8);
-  camX = Math.max(0, Math.min(camX, levelW * TILE - VIEW_W));
-
-  // 별 먹기
   for (const c of coins) {
-    if (c.taken) continue;
-    if (Math.abs(c.x - (p.x + p.w/2)) < 26 && Math.abs(c.y - (p.y + p.h/2)) < 30) {
-      c.taken = true; game.score += 10; updateHUD();
+    if (c.userData.taken) continue;
+    if (Math.abs(c.position.z - dogZ) < 0.9 && Math.abs(c.position.x - s.dogX) < 0.9 && Math.abs(c.position.y - (s.dogY + 1.0)) < 1.1) {
+      c.userData.taken = true; c.visible = false; s.coins++; updateHUD();
     }
   }
 
-  // 몬스터 움직임
-  for (const e of enemies) {
-    if (e.dead) continue;
-    e.vy += GRAVITY * dt; if (e.vy > 900) e.vy = 900;
-    // 가로 이동, 벽이나 낭떠러지에서 방향 바꾸기
-    let nx = e.x + e.vx * dt;
-    const footAhead = solidAt(nx + (e.vx > 0 ? e.w + 2 : -2), e.y + e.h + 2);
-    const wallAhead = rectHitsSolid(nx, e.y, e.w, e.h);
-    if (!footAhead || wallAhead) { e.vx *= -1; } else { e.x = nx; }
-    // 세로(중력)
-    e.y += e.vy * dt;
-    if (rectHitsSolid(e.x, e.y, e.w, e.h) && e.vy > 0) {
-      e.y = Math.floor((e.y + e.h) / TILE) * TILE - e.h - 0.01; e.vy = 0;
-    }
-    // 플레이어와 부딪힘
-    if (overlap(p, e)) {
-      const falling = p.vy > 0 && (p.y + p.h) - e.y < 24;
-      if (falling) { e.dead = true; p.vy = -JUMP_VELOCITY * 0.6; game.score += 20; updateHUD(); }
-      else { loseLife(); }
-    }
-  }
-
-  // 깃발 도착 → 다음 스테이지
-  if (goal && Math.abs(goal.x - (p.x + p.w/2)) < 30 && Math.abs(goal.r * TILE - p.y) < TILE * 2) {
-    nextLevel();
-  }
-}
-
-function overlap(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function loseLife() {
-  game.lives--;
-  updateHUD();
-  if (game.lives <= 0) { endGame(false); }
-  else { respawn(); game.transition = 0.4; }
-}
-
-function nextLevel() {
-  if (game.level >= LEVELS.length - 1) { endGame(true); return; }
-  game.level++;
-  loadLevel(game.level);
-  game.transition = 0.5;
   updateHUD();
 }
 
-function endGame(won) {
-  game.over = true;
-  saveBest(game.score);
-  document.getElementById("endTitle").textContent = won ? "🏆 클리어!" : "💫 게임 오버";
-  document.getElementById("endText").innerHTML = won
-    ? `모든 스테이지를 통과했어요!<br>점수 🌟 ${game.score} · 최고 🏆 ${bestScore()}`
-    : `별 🌟 ${game.score}점<br>최고 기록 🏆 ${bestScore()}점`;
-  document.getElementById("endScreen").classList.remove("hidden");
-}
-
-// ---- 그리기 ----
-function draw() {
-  ctx.clearRect(0, 0, VIEW_W, VIEW_H);
-  drawClouds();
-  if (!game) return;
-  ctx.save();
-  ctx.translate(-Math.round(camX), 0);
-
-  // 땅/발판
-  for (let r = 0; r < levelH; r++) {
-    for (let c = 0; c < levelW; c++) {
-      if (!tiles[r][c]) continue;
-      const x = c * TILE, y = r * TILE;
-      if (x - camX > VIEW_W + TILE || x - camX < -TILE) continue; // 화면 밖은 그리지 않기
-      const grassTop = !(r > 0 && tiles[r-1][c]);
-      ctx.fillStyle = "#8a5a34"; ctx.fillRect(x, y, TILE, TILE);
-      if (grassTop) { ctx.fillStyle = "#5fbf5f"; ctx.fillRect(x, y, TILE, 10); }
-    }
-  }
-
-  // 깃발
-  if (goal) {
-    const gx = goal.x, gy = goal.r * TILE;
-    ctx.strokeStyle = "#4a5878"; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(gx, gy - TILE*0.2); ctx.lineTo(gx, gy + TILE); ctx.stroke();
-    ctx.fillStyle = "#ff7a59";
-    ctx.beginPath(); ctx.moveTo(gx, gy - TILE*0.2); ctx.lineTo(gx + 28, gy); ctx.lineTo(gx, gy + 18); ctx.fill();
-  }
-
-  // 별
-  for (const c of coins) {
-    if (c.taken) continue;
-    drawStar(c.x, c.y + Math.sin((performance.now()/300) + c.bob) * 4, 12);
-  }
-
-  // 몬스터
-  for (const e of enemies) {
-    if (e.dead) continue;
-    ctx.fillStyle = "#8a5cff";
-    roundRect(e.x, e.y, e.w, e.h, 8); ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(e.x + e.w*0.32, e.y + e.h*0.4, 4, 0, 7); ctx.arc(e.x + e.w*0.68, e.y + e.h*0.4, 4, 0, 7); ctx.fill();
-    ctx.fillStyle = "#24304a";
-    ctx.beginPath(); ctx.arc(e.x + e.w*0.32 + (e.vx>0?1.5:-1.5), e.y + e.h*0.4, 2, 0, 7); ctx.arc(e.x + e.w*0.68 + (e.vx>0?1.5:-1.5), e.y + e.h*0.4, 2, 0, 7); ctx.fill();
-  }
-
-  // 플레이어 (우리 강아지 🐶)
-  drawDog(player);
-
-  ctx.restore();
-}
-
-// 🐶 우리 강아지 2D 캐릭터 — 사진 속 크림색 코커스패니얼을 캐릭터로!
-// 걷기·점프에 따라 다리·귀·꼬리가 살아 움직여요.
-function drawDog(p) {
-  const k = p.h / 34;                          // 크기 배율
-  const fx = p.x + p.w / 2;                     // 발 중심 x
-  const fy = p.y + p.h + 2;                     // 발 y
-  const t = performance.now() / 1000;
-  const moving = Math.abs(p.vx) > 5 && p.onGround;
-  const air = !p.onGround;
-  const phase = p.stride || 0;
-  ctx.save();
-  ctx.translate(fx, fy);
-  ctx.scale(p.face < 0 ? -k : k, k);            // 방향에 따라 좌우 뒤집기
-  drawDogChar(t, moving, air, phase);
-  ctx.restore();
-}
-
-// 실제 캐릭터 그리기 (발끝이 원점, 기본은 오른쪽을 바라봄)
-function drawDogChar(t, moving, air, phase) {
-  const C = {
-    furL: "#f7ead0", fur: "#eeddb2", furD: "#dcc088",
-    ear: "#e3c684", earD: "#c7a65c",
-    nose: "#2b2320", eye: "#3a2c25", tongue: "#ff96ab",
-    collar: "#d83b3b", collarD: "#af2d2d", tag: "#ffcf3a",
-    dress: "#eaf1ff", dressD: "#d6e2fb", flower: "#ff9dc0",
-  };
-  const bob   = air ? -1 : (moving ? Math.sin(phase * 2) * 1.4 : Math.sin(t * 2) * 0.7);
-  const swing = air ? 0.5 : (moving ? Math.sin(phase * 2) * 0.7 : Math.sin(t * 1.6) * 0.05);
-  const flap  = air ? -0.25 : (moving ? Math.sin(phase * 2 + 0.5) * 0.28 : Math.sin(t * 1.4) * 0.07);
-  const wag   = Math.sin(t * (moving ? 14 : 7)) * (moving ? 0.5 : 0.35);
-  const bodyY = -20 + bob;
-
-  // 바닥 그림자
-  ctx.fillStyle = "rgba(0,0,0,.16)";
-  ctx.beginPath(); ctx.ellipse(2, -1, air ? 12 : 17, 4, 0, 0, 7); ctx.fill();
-
-  // 뒤쪽 다리 (몸 뒤, 살짝 어둡게)
-  drawLeg(-9, -13, air ? 0.5 : -swing, C.furD);
-  drawLeg(12, -13, air ? 0.7 : swing, C.furD);
-
-  // 꼬리 (살랑살랑)
-  ctx.save();
-  ctx.translate(-16, bodyY - 1);
-  ctx.rotate(-0.5 + wag);
-  ctx.fillStyle = C.ear;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-10, -3, -14, -12);
-  ctx.quadraticCurveTo(-6, -8, 0, -2);
-  ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(-13, -12, 5, 0, 7); ctx.fill();
-  ctx.restore();
-
-  // 몸통
-  ctx.save();
-  ctx.translate(0, bodyY);
-  ctx.rotate(-0.06);
-  ctx.fillStyle = C.fur;
-  ctx.beginPath(); ctx.ellipse(0, 0, 18, 13, 0, 0, 7); ctx.fill();
-  ctx.restore();
-
-  // 꽃무늬 원피스
-  ctx.save();
-  ctx.translate(0, bodyY);
-  ctx.rotate(-0.06);
-  ctx.beginPath();
-  ctx.moveTo(-17, -1);
-  ctx.quadraticCurveTo(-19, 9, -15, 15);
-  ctx.lineTo(16, 15);
-  ctx.quadraticCurveTo(19, 8, 16, -2);
-  ctx.quadraticCurveTo(0, 6, -17, -1);
-  ctx.closePath();
-  ctx.fillStyle = C.dress; ctx.fill();
-  ctx.fillStyle = C.dressD;
-  ctx.beginPath(); ctx.moveTo(-15, 15);
-  for (let i = -15; i <= 16; i += 6) ctx.quadraticCurveTo(i + 3, 19, i + 6, 15);
-  ctx.lineTo(16, 15); ctx.closePath(); ctx.fill();
-  const flowers = [[-9, 4], [2, 8], [11, 4], [-3, 11], [7, 12]];
-  for (const [fxp, fyp] of flowers) {
-    ctx.fillStyle = C.flower;
-    for (let a = 0; a < 5; a++) {
-      const ang = a * Math.PI * 2 / 5;
-      ctx.beginPath(); ctx.arc(fxp + Math.cos(ang) * 1.6, fyp + Math.sin(ang) * 1.6, 1.1, 0, 7); ctx.fill();
-    }
-    ctx.fillStyle = C.tag;
-    ctx.beginPath(); ctx.arc(fxp, fyp, 1, 0, 7); ctx.fill();
-  }
-  ctx.restore();
-
-  // 앞쪽 다리 (몸 앞, 밝게)
-  drawLeg(-6, -12, air ? 0.7 : swing, C.fur);
-  drawLeg(14, -12, air ? 0.5 : -swing, C.fur);
-
-  // 머리 기준점
-  const hx = 13, hy = bodyY - 12;
-
-  // (뒤쪽 귀는 옆모습에선 머리에 가려지므로 생략)
-
-  // 머리 (복슬복슬)
-  ctx.fillStyle = C.fur;
-  const fluff = [[0, -13, 8], [-8, -9, 8], [8, -9, 8], [-11, 0, 8], [11, -1, 8], [0, 3, 10]];
-  for (const [dx, dy, r] of fluff) { ctx.beginPath(); ctx.arc(hx + dx, hy + dy, r, 0, 7); ctx.fill(); }
-  ctx.beginPath(); ctx.arc(hx, hy, 15, 0, 7); ctx.fill();
-  ctx.fillStyle = C.furL;
-  ctx.beginPath(); ctx.arc(hx - 2, hy - 6, 8, 0, 7); ctx.fill();
-
-  // 주둥이(밝은 부분)
-  ctx.fillStyle = C.furL;
-  ctx.beginPath(); ctx.ellipse(hx + 7, hy + 6, 9, 7, 0, 0, 7); ctx.fill();
-
-  // 눈 (크고 까만 코커 눈 + 반짝임)
-  const eyeX = hx + 3, eyeY = hy - 1;
-  for (const s of [0, 8]) {
-    ctx.fillStyle = C.eye;
-    ctx.beginPath(); ctx.ellipse(eyeX + s, eyeY, 2.6, 3.2, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(eyeX + s + 1, eyeY - 1.2, 1, 0, 7); ctx.fill();
-  }
-  ctx.strokeStyle = C.furD; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(eyeX + 4, eyeY - 5, 5, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
-
-  // 코 + 입 + 혀
-  ctx.fillStyle = C.nose;
-  ctx.beginPath(); ctx.ellipse(hx + 13, hy + 4, 3, 2.4, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.4)";
-  ctx.beginPath(); ctx.arc(hx + 12, hy + 3, 0.8, 0, 7); ctx.fill();
-  ctx.strokeStyle = C.nose; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(hx + 13, hy + 6); ctx.quadraticCurveTo(hx + 11, hy + 9, hx + 8, hy + 8); ctx.stroke();
-  ctx.fillStyle = C.tongue;
-  ctx.beginPath(); ctx.ellipse(hx + 11, hy + 9, 2, 2.6, 0, 0, 7); ctx.fill();
-
-  // 앞쪽 귀 — 머리 오른쪽 옆에서 턱 옆으로 늘어짐 (얼굴을 감싸듯)
-  drawEar(hx + 4, hy - 7, flap + 0.6, C.ear, 1.1);
-
-  // 빨간 목걸이 — 목/가슴에 짧게 + 하트 이름표
-  ctx.save();
-  ctx.translate(hx - 3, hy + 13);
-  ctx.rotate(0.16);
-  ctx.fillStyle = C.collar; roundRect(-6, -1.8, 11, 3.6, 1.8); ctx.fill();
-  ctx.fillStyle = C.collarD; roundRect(-6, 0.5, 11, 1, 0.8); ctx.fill();
-  ctx.fillStyle = C.tag;                        // 하트 이름표
-  ctx.beginPath();
-  ctx.moveTo(-0.5, 5); ctx.bezierCurveTo(-3, 2, -3, -0.5, -0.5, 1); ctx.bezierCurveTo(2, -0.5, 2, 2, -0.5, 5);
-  ctx.fill();
-  ctx.restore();
-}
-
-// 다리 하나 (엉덩이에서 아래로, angle 로 흔들림)
-function drawLeg(hipX, hipY, angle, shade) {
-  ctx.save();
-  ctx.translate(hipX, hipY);
-  ctx.rotate(angle);
-  ctx.fillStyle = shade;
-  roundRect(-2.6, 0, 5.2, 12, 2.4); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0.3, 12.5, 3.8, 2.8, 0, 0, 7); ctx.fill();
-  ctx.restore();
-}
-
-// 길게 늘어진 곱슬 귀
-function drawEar(baseX, baseY, rot, shade, sc) {
-  ctx.save();
-  ctx.translate(baseX, baseY);
-  ctx.rotate(rot);
-  ctx.scale(sc || 1, sc || 1);
-  ctx.fillStyle = shade;
-  ctx.beginPath();
-  ctx.moveTo(0, -4);
-  ctx.bezierCurveTo(-9, 0, -11, 12, -7, 20);
-  ctx.bezierCurveTo(-4, 25, 4, 25, 7, 19);
-  ctx.bezierCurveTo(10, 11, 8, 2, 3, -4);
-  ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-let cloudT = 0;
-function drawClouds() {
-  cloudT += 0.02;
-  ctx.fillStyle = "rgba(255,255,255,.75)";
-  const puffs = [[120,90,34],[140,70,26],[560,140,40],[540,120,30],[360,60,28]];
-  for (const [bx, by, rr] of puffs) {
-    const x = (bx - cloudT * 6 - camX * 0.15) % (VIEW_W + 200);
-    const px = x < -100 ? x + VIEW_W + 200 : x;
-    ctx.beginPath(); ctx.arc(px, by, rr, 0, 7); ctx.arc(px + rr, by + 6, rr*0.8, 0, 7); ctx.arc(px - rr, by + 6, rr*0.8, 0, 7); ctx.fill();
+function cull(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i].position.z > 12 || arr[i].userData.taken) { scene.remove(arr[i]); arr.splice(i, 1); }
   }
 }
-function drawStar(cx, cy, r) {
-  ctx.fillStyle = "#ffc93c"; ctx.strokeStyle = "#e59a00"; ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const ang = -Math.PI/2 + i * Math.PI/5;
-    const rad = i % 2 === 0 ? r : r * 0.45;
-    ctx[i === 0 ? "moveTo" : "lineTo"](cx + Math.cos(ang)*rad, cy + Math.sin(ang)*rad);
-  }
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-}
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
-  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+
+function hitObstacle(o) {
+  state.lives--; state.invuln = 1.2;
+  scene.remove(o);
+  const idx = obstacles.indexOf(o); if (idx>=0) obstacles.splice(idx,1);
+  updateHUD();
+  if (state.lives <= 0) endGame();
 }
 
-// ---- HUD & 최고 점수 저장 ----
+function endGame() {
+  state.running = false;
+  const m = Math.floor(state.dist);
+  const best = Math.max(m, Number(localStorage.getItem("dogrun_best") || 0));
+  localStorage.setItem("dogrun_best", String(best));
+  document.getElementById("ovTitle").textContent = "💫 게임 오버";
+  document.getElementById("ovText").innerHTML = `${m} m 달렸어요! 🦴 ${state.coins}개<br>최고 기록 🏆 ${best} m`;
+  document.getElementById("over").classList.remove("hidden");
+  document.getElementById("pad").style.display = "none";
+}
+
 function updateHUD() {
-  document.getElementById("uiScore").textContent = game.score;
-  document.getElementById("uiLevel").textContent = game.level + 1;
-  document.getElementById("uiLives").textContent = game.lives;
+  document.getElementById("m").textContent = Math.floor(state.dist);
+  document.getElementById("coins").textContent = state.coins;
+  document.getElementById("lives").textContent = state.lives;
+  // 무적 깜빡임
+  if (dog) dog.visible = !(state.invuln > 0 && Math.floor(state.invuln * 12) % 2 === 0);
 }
-function bestScore() { return Number(localStorage.getItem("cloud_best") || 0); }
-function saveBest(s) { if (s > bestScore()) localStorage.setItem("cloud_best", String(s)); }
 
-// ---- 버튼 연결 & 시작 ----
-document.getElementById("btnPlay").onclick = () => {
-  document.getElementById("startScreen").classList.add("hidden");
-  newGame();
-};
-document.getElementById("btnAgain").onclick = () => {
-  document.getElementById("endScreen").classList.add("hidden");
-  newGame();
-};
-addEventListener("resize", fitCanvas);
-fitCanvas();
-requestAnimationFrame(loop);
-
-// ---- 폰 홈 화면 설치용 (오프라인 실행) — 웹 미리보기에서는 조용히 무시돼요 ----
-if ("serviceWorker" in navigator) {
-  try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch (e) {}
+function onResize() {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
 }
+
+// ---------- 시작 버튼 ----------
+document.getElementById("play").onclick = newGame;
+document.getElementById("again").onclick = newGame;
+
+// ---------- 폰 설치용 (미리보기에서는 조용히 무시) ----------
+if ("serviceWorker" in navigator) { try { navigator.serviceWorker.register("sw.js").catch(()=>{}); } catch(e){} }
+
+// 엔진 로드 확인 후 시작
+if (window.THREE) init();
+else document.getElementById("loading").textContent = "3D 엔진을 불러오지 못했어요 😢";
 </script>

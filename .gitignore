@@ -3,3 +3,4 @@ package-lock.json
 package.json
 # 작업용 임시 스크린샷
 assets/_*.png
+preview.html
