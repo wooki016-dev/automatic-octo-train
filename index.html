@@ -58,6 +58,14 @@
   .card button:active { transform: translateY(3px); box-shadow: 0 2px 0 #d95e28; }
   .hint { margin-top: 14px; font-size: 12px; color: #8b93b4; }
   #loading { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: #0d1230; color:#fff; font-weight:800; }
+  /* 화면 붉은 플래시 (부딪힐 때) */
+  #flash { position: fixed; inset: 0; z-index: 4; background: #ff3b3b; opacity: 0; pointer-events: none; transition: opacity .4s; }
+  /* 점수 팝업 */
+  .pop { position: fixed; left: 50%; bottom: 42%; transform: translate(-50%, 0); z-index: 4;
+    font-size: 26px; font-weight: 900; color: #ffd23c; -webkit-text-stroke: 1px #a56b00;
+    text-shadow: 0 3px 8px rgba(0,0,0,.4); pointer-events: none; transition: transform .6s ease-out, opacity .6s; }
+  @keyframes chipPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
+  .chip.pop-anim { animation: chipPop .3s ease; }
 </style>
 
 <canvas id="c"></canvas>
@@ -91,6 +99,7 @@
   </div>
 </div>
 
+<div id="flash"></div>
 <div id="loading">불러오는 중… 🐾</div>
 
 <script src="three.min.js"></script>
@@ -112,14 +121,25 @@ const CFG = {
 
 let scene, camera, renderer, clock;
 let dog, dogParts;
-const obstacles = [], coins = [], trees = [], stripes = [];
+const obstacles = [], coins = [], trees = [], stripes = [], clouds = [], hills = [], particles = [];
 let state; // 게임 상태
 
 // ---------- 초기화 ----------
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x8fd3ff);
-  scene.fog = new THREE.Fog(0x8fd3ff, 24, 62);   // 멀리 안개로 자연스럽게
+  scene.fog = new THREE.Fog(0xbfe6ff, 30, 78);   // 멀리 안개로 자연스럽게
+
+  // 그라데이션 하늘 돔
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(140, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      uniforms: { top: { value: new THREE.Color(0x3f8fe0) }, bot: { value: new THREE.Color(0xd7f0ff) } },
+      vertexShader: "varying vec3 vp; void main(){ vp=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader: "varying vec3 vp; uniform vec3 top; uniform vec3 bot; void main(){ float h=smoothstep(-0.1,0.55,normalize(vp).y); gl_FragColor=vec4(mix(bot,top,h),1.0); }"
+    })
+  );
+  scene.add(sky);
 
   camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 200);
   camera.position.set(0, 4.2, 8);
@@ -131,6 +151,8 @@ function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;   // 색이 더 또렷하게
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;  // 영화 같은 색감
+  renderer.toneMappingExposure = 0.98;
 
   // 빛
   const hemi = new THREE.HemisphereLight(0xffffff, 0x6b8f4e, 0.72);
@@ -173,6 +195,31 @@ function init() {
   // 길가 나무들
   for (let i = 0; i < 16; i++) addTree(i);
 
+  // 멀리 언덕들 (분위기)
+  const hillMat = new THREE.MeshStandardMaterial({ color: 0x8fd07a, roughness: 1 });
+  for (let i = 0; i < 8; i++) {
+    const h = new THREE.Mesh(new THREE.SphereGeometry(6 + Math.random()*4, 12, 8), hillMat);
+    h.scale.y = 0.5;
+    const side = i % 2 === 0 ? -1 : 1;
+    h.position.set(side * (14 + Math.random()*8), -1, -i * 15 - 10);
+    scene.add(h); hills.push(h);
+  }
+  // 뭉게구름
+  const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0x445566, emissiveIntensity: 0.05 });
+  for (let i = 0; i < 10; i++) {
+    const cl = new THREE.Group();
+    for (let k = 0; k < 4; k++) {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.6 + Math.random(), 10, 8), cloudMat);
+      puff.position.set((k - 1.5) * 1.7, Math.random()*0.6, Math.random()*0.6);
+      cl.add(puff);
+    }
+    cl.position.set((Math.random()-0.5) * 60, 12 + Math.random()*10, -i * 14 - 10);
+    scene.add(cl); clouds.push(cl);
+  }
+
+  // 파티클 풀 준비
+  initParticles();
+
   // 강아지
   dog = buildDog();
   scene.add(dog);
@@ -189,8 +236,8 @@ function init() {
 function buildDog() {
   const outer = new THREE.Group();
   const g = new THREE.Group();
-  const cream = new THREE.MeshStandardMaterial({ color: 0xf0dcae, roughness: 0.85 });
-  const creamD = new THREE.MeshStandardMaterial({ color: 0xdcc088, roughness: 0.85 });
+  const cream = new THREE.MeshStandardMaterial({ color: 0xe8c079, roughness: 0.8 });
+  const creamD = new THREE.MeshStandardMaterial({ color: 0xcf9f57, roughness: 0.8 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2b2320 });
   const red  = new THREE.MeshStandardMaterial({ color: 0xd83b3b, roughness: 0.5 });
   const pink = new THREE.MeshStandardMaterial({ color: 0xff8fa3 });
@@ -311,7 +358,7 @@ function newGame() {
   state = {
     running: true, speed: CFG.startSpeed, dist: 0, coins: 0, lives: CFG.lives,
     lane: 1, dogX: 0, dogY: 0, vy: 0, grounded: true, run: 0,
-    spawnZ: -40, invuln: 0,
+    spawnZ: -40, invuln: 0, shake: 0, combo: 0, comboT: 0,
   };
   dog.position.set(0, 0, 0); dog.rotation.y = 0;
   document.getElementById("hud").style.display = "flex";
@@ -357,6 +404,8 @@ function moveLane(dir) {
 function jump() {
   if (!state || !state.running || !state.grounded) return;
   state.vy = CFG.jumpPower; state.grounded = false;
+  sfxJump();
+  burst(state.dogX, 0.2, 0.5, 0xe9dcc0, 8, 3);   // 점프 먼지
 }
 function bindControls() {
   document.getElementById("kL").onclick = () => moveLane(-1);
@@ -393,11 +442,15 @@ function update(dt) {
   const move = s.speed * dt;
   s.dist += move;
   if (s.invuln > 0) s.invuln -= dt;
+  if (s.comboT > 0) { s.comboT -= dt; if (s.comboT <= 0) s.combo = 0; }
 
   // 줄무늬 이동(속도감)
   for (const st of stripes) { st.position.z += move; if (st.position.z > 12) st.position.z -= 110; }
   // 나무 이동
   for (const t of trees) { t.position.z += move; if (t.position.z > 12) { t.position.z -= 128; t.position.x = (t.position.x>0?1:-1)*(5.5+Math.random()*3); } }
+  // 언덕·구름 (멀수록 천천히 = 시차 효과)
+  for (const h of hills) { h.position.z += move * 0.5; if (h.position.z > 20) h.position.z -= 130; }
+  for (const cl of clouds) { cl.position.z += move * 0.32; if (cl.position.z > 22) cl.position.z -= 150; }
 
   // 장애물·뼈다귀 이동 + 재활용
   for (const o of obstacles) o.position.z += move;
@@ -417,7 +470,9 @@ function update(dt) {
   dog.rotation.y = (targetX - s.dogX) * -0.5; // 살짝 기울기
   // 카메라가 강아지를 살짝 따라가서 화면 가운데쯤에 유지
   camera.position.x += (s.dogX * 0.5 - camera.position.x) * Math.min(1, dt * 4);
+  camera.position.y += (4.2 - camera.position.y) * Math.min(1, dt * 4);
   camera.lookAt(s.dogX * 0.25, 0.9, -8);
+  if (s.shake > 0) { s.shake -= dt; const a = s.shake * 2.6; camera.position.x += (Math.random()-0.5)*a; camera.position.y += (Math.random()-0.5)*a; }
 
   // 점프/중력
   if (!s.grounded) {
@@ -456,10 +511,16 @@ function update(dt) {
   for (const c of coins) {
     if (c.userData.taken) continue;
     if (Math.abs(c.position.z - dogZ) < 0.9 && Math.abs(c.position.x - s.dogX) < 0.9 && Math.abs(c.position.y - (s.dogY + 1.0)) < 1.1) {
-      c.userData.taken = true; c.visible = false; s.coins++; updateHUD();
+      c.userData.taken = true; c.visible = false; s.coins++;
+      burst(c.position.x, c.position.y, c.position.z, 0xffd23c, 10, 4);  // 반짝임
+      sfxCoin(); chipPop("coins");
+      s.combo++; s.comboT = 1.3;
+      popup(s.combo > 2 ? ("+1 🦴  x" + s.combo) : "+1 🦴");
+      updateHUD();
     }
   }
 
+  updateParticles(dt, move);
   updateHUD();
 }
 
@@ -470,7 +531,9 @@ function cull(arr) {
 }
 
 function hitObstacle(o) {
-  state.lives--; state.invuln = 1.2;
+  state.lives--; state.invuln = 1.2; state.shake = 0.4; state.combo = 0;
+  burst(o.position.x, 0.8, o.position.z, 0xff5a5a, 16, 6);
+  sfxHit(); flash();
   scene.remove(o);
   const idx = obstacles.indexOf(o); if (idx>=0) obstacles.splice(idx,1);
   updateHUD();
@@ -501,9 +564,86 @@ function onResize() {
   renderer.setSize(innerWidth, innerHeight);
 }
 
+// ---------- 파티클 (반짝임/먼지/충돌) ----------
+let P_GEO;
+function initParticles() {
+  P_GEO = new THREE.SphereGeometry(0.11, 6, 5);
+  for (let i = 0; i < 150; i++) {
+    const m = new THREE.Mesh(P_GEO, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    m.visible = false; scene.add(m);
+    particles.push({ mesh: m, vx: 0, vy: 0, vz: 0, life: 0, max: 1, active: false, base: 1 });
+  }
+}
+function burst(x, y, z, color, count, power) {
+  let n = 0;
+  for (const p of particles) {
+    if (p.active) continue;
+    p.active = true; p.mesh.visible = true; p.mesh.material.color.setHex(color);
+    p.mesh.position.set(x, y, z);
+    const a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, r = Math.sqrt(1 - u * u);
+    const sp = power * (0.5 + Math.random());
+    p.vx = Math.cos(a) * r * sp; p.vy = Math.abs(u) * sp * 1.1 + 1.5; p.vz = Math.sin(a) * r * sp;
+    p.life = 0; p.max = 0.45 + Math.random() * 0.4;
+    p.base = 0.6 + Math.random() * 0.9; p.mesh.scale.setScalar(p.base);
+    if (++n >= count) break;
+  }
+}
+function updateParticles(dt, move) {
+  for (const p of particles) {
+    if (!p.active) continue;
+    p.life += dt;
+    if (p.life >= p.max) { p.active = false; p.mesh.visible = false; continue; }
+    p.vy -= 15 * dt;
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt + move;
+    p.mesh.scale.setScalar(p.base * (1 - p.life / p.max));
+  }
+}
+
+// ---------- 사운드 (코드로 직접 생성, 파일 없음) ----------
+let actx = null;
+function initAudio() { if (actx) return; try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+function tone(freq, dur, type, vol, slideTo) {
+  if (!actx) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol || 0.2, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+function sfxJump() { tone(300, 0.18, "square", 0.12, 640); }
+function sfxCoin() { tone(880, 0.08, "sine", 0.18); setTimeout(() => tone(1320, 0.12, "sine", 0.16), 55); }
+function sfxHit() {
+  tone(170, 0.28, "sawtooth", 0.22, 55);
+  if (!actx) return;
+  const b = actx.createBuffer(1, actx.sampleRate * 0.15, actx.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const s = actx.createBufferSource(); s.buffer = b;
+  const g = actx.createGain(); g.gain.value = 0.14;
+  s.connect(g).connect(actx.destination); s.start();
+}
+
+// ---------- 화면 연출 ----------
+function popup(text) {
+  const el = document.createElement("div"); el.className = "pop"; el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.transform = "translate(-50%,-72px)"; el.style.opacity = "0"; });
+  setTimeout(() => el.remove(), 640);
+}
+function flash() {
+  const f = document.getElementById("flash");
+  f.style.opacity = "0.55"; setTimeout(() => f.style.opacity = "0", 60);
+}
+function chipPop(id) {
+  const el = document.getElementById(id).closest(".chip");
+  el.classList.remove("pop-anim"); void el.offsetWidth; el.classList.add("pop-anim");
+}
+
 // ---------- 시작 버튼 ----------
-document.getElementById("play").onclick = newGame;
-document.getElementById("again").onclick = newGame;
+document.getElementById("play").onclick = () => { initAudio(); newGame(); };
+document.getElementById("again").onclick = () => { initAudio(); newGame(); };
 
 // ---------- 폰 설치용 (미리보기에서는 조용히 무시) ----------
 if ("serviceWorker" in navigator) { try { navigator.serviceWorker.register("sw.js").catch(()=>{}); } catch(e){} }
